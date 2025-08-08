@@ -21,6 +21,9 @@ export default {
   // },
   extensionsToTreatAsEsm: ['.ts'],
   moduleFileExtensions: ['ts', 'js'],
+  // moduleNameMapper: {
+  //   '^node:fs$': '<rootDir>/__mocks__/fs.ts'
+  // },
   preset: 'ts-jest',
   reporters: ['default'],
   resolver: 'ts-jest-resolver',
