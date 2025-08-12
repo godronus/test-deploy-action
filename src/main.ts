@@ -10,7 +10,7 @@ import { FastEdgeClient } from './api-utils/index.js'
 export async function run(): Promise<void> {
   try {
     const apiKey: string = core.getInput('api_key')
-    core.debug(`API Key: ${apiKey}`) // Debugging API key input
+    core.debug(`API Key: ${apiKey}`)
     const apiUrl: string = core.getInput('api_url')
 
     // Create a FastEdge API client instance
@@ -18,11 +18,15 @@ export async function run(): Promise<void> {
 
     // Check if the app exists
     const appName: string = core.getInput('app_name')
+    console.log('Farq: appName', appName)
     const appId: string = core.getInput('app_id')
+    console.log('Farq: appId', appId)
 
     let app
     if (appId && appId !== '0') {
       app = await fastEdgeClient.apps.get(appId).includeBinary()
+    } else if (appName) {
+      app = await fastEdgeClient.apps.getByName(appName).includeBinary()
     }
     console.log('Farq: app', app)
 

@@ -35,7 +35,19 @@ export class FastEdgeClient {
        * Get a specific application by ID
        * @param id - Application ID
        */
-      get: (id: number) => apps.getEnhancedApp(this.apiConfig, id),
+      get: (id: number | string) =>
+        apps.appendAppIncludes(this.apiConfig, () =>
+          apps.getApp(this.apiConfig, id)
+        ),
+
+      /**
+       * Get a specific application by Name
+       * @param id - Application ID
+       */
+      getByName: (name: string) =>
+        apps.appendAppIncludes(this.apiConfig, () =>
+          apps.getAppByName(this.apiConfig, name)
+        ),
 
       /**
        * Create a new application from a binary or template
@@ -64,7 +76,7 @@ export class FastEdgeClient {
        * Get a specific binary by ID
        * @param id - Binary ID
        */
-      get: (id: number) => binaries.getBinary(this.apiConfig, id)
+      get: (id: number | string) => binaries.getBinary(this.apiConfig, id)
 
       // Add other binary methods as needed
     }

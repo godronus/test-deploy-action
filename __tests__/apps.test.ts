@@ -2,12 +2,13 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 
 import { createMockResponse } from '../__fixtures__/mockResponse.js'
 import {
+  appendAppIncludes,
   createApp,
   getApp,
+  getAppByName,
   getApps,
-  getEnhancedApp,
   updateApp
-} from '../src/api-utils/apps/index'
+} from '../src/api-utils/apps/index.js'
 
 import type {
   ApiType,
@@ -16,9 +17,10 @@ import type {
   CreateAppResponse,
   GetAppResponse,
   GetAppsResponse,
+  GetAppsResponseItem,
   GetBinaryResponse,
   UpdateAppResource
-} from '../src/api-utils/types'
+} from '../src/api-utils/types.js'
 
 const mockApiUrl = 'https://api.example.com'
 const mockApiKey = 'test-api-key'
@@ -100,7 +102,94 @@ describe('Application functions', () => {
     })
   })
 
-  describe('getEnhancedApp', () => {
+  describe('getAppByName', () => {
+    beforeEach(() => {
+      jest.resetAllMocks()
+    })
+
+    it('fetches a singular application by name and returns response', async () => {
+      const mockAppObj: GetAppsResponseItem = {
+        id: 56891,
+        api_type: 'wasi-http' as ApiType,
+        binary: 12345,
+        name: 'gnome-maze',
+        comment: 'Test app',
+        networks: ['default'],
+        plan: 'basic',
+        plan_id: 1,
+        status: 1,
+        url: 'https://gnome-maze.preprod-world.org'
+      }
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((): Promise<Response> => {
+          return Promise.resolve(
+            createMockResponse({
+              ok: true,
+              data: { apps: [mockAppObj] }
+            })
+          )
+        })
+
+      const result = await getAppByName(mockApiConfig, 'gnome-maze')
+      expect(result).toEqual(mockAppObj)
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `${mockApiUrl}/fastedge/v1/apps?name=gnome-maze`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `APIKey ${mockApiKey}`
+          })
+        })
+      )
+    })
+
+    it('throws an error if it cannot find an application matching the name', async () => {
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((): Promise<Response> => {
+          return Promise.resolve(
+            createMockResponse({
+              ok: true,
+              data: { apps: [] }
+            })
+          )
+        })
+
+      const name = 'non-existent-app'
+      await expect(getAppByName(mockApiConfig, name)).rejects.toThrow(
+        `Application with name "${name}" not found`
+      )
+    })
+
+    it('throws error if response is not ok', async () => {
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((): Promise<Response> => {
+          return Promise.resolve(
+            createMockResponse({
+              ok: false
+            })
+          )
+        })
+
+      await expect(
+        getAppByName(mockApiConfig, 'non-existent-app')
+      ).rejects.toThrow('Error fetching applications: Bad Request')
+    })
+
+    it('throws error if fetch throws', async () => {
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValue(new Error('Network error'))
+
+      await expect(getAppByName(mockApiConfig, 'gnome-maze')).rejects.toThrow(
+        'Error fetching applications: Network error'
+      )
+    })
+  })
+
+  describe('appendAppIncludes', () => {
     const mockAppWithBinary: GetAppResponse = {
       id: 56891,
       api_type: 'wasi-http' as ApiType,
@@ -147,6 +236,129 @@ describe('Application functions', () => {
     })
 
     it('returns enhanced app response without chaining', async () => {
+      const mockGetAppFn = jest
+        .fn<() => Promise<GetAppResponse>>()
+        .mockResolvedValue(mockAppWithBinary)
+
+      const result = await appendAppIncludes(mockApiConfig, mockGetAppFn)
+
+      expect(result).toEqual(mockAppWithBinary)
+      expect(mockGetAppFn).toHaveBeenCalledTimes(1)
+    })
+
+    it('includes binary data when includeBinary is chained', async () => {
+      const mockGetAppFn = jest
+        .fn<() => Promise<GetAppResponse>>()
+        .mockResolvedValue(mockAppWithBinary)
+
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((): Promise<Response> => {
+          return Promise.resolve(
+            createMockResponse<GetBinaryResponse>({
+              ok: true,
+              data: mockBinaryResponse
+            })
+          )
+        })
+
+      const result = await appendAppIncludes(
+        mockApiConfig,
+        mockGetAppFn
+      ).includeBinary()
+
+      expect(result).toEqual({
+        ...mockAppWithBinary,
+        binary: mockBinaryResponse
+      })
+      expect(mockGetAppFn).toHaveBeenCalledTimes(1)
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `${mockApiUrl}/fastedge/v1/binaries/12345`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `APIKey ${mockApiKey}`
+          })
+        })
+      )
+    })
+
+    it('handles app without binary when includeBinary is chained', async () => {
+      const mockGetAppFn = jest
+        .fn<() => Promise<GetAppResponse>>()
+        .mockResolvedValue(mockAppWithoutBinary)
+
+      const result = await appendAppIncludes(
+        mockApiConfig,
+        mockGetAppFn
+      ).includeBinary()
+
+      expect(result).toEqual(mockAppWithoutBinary)
+      expect(mockGetAppFn).toHaveBeenCalledTimes(1)
+      expect(globalThis.fetch).not.toHaveBeenCalled()
+    })
+
+    it('supports multiple chaining of includeBinary', async () => {
+      const mockGetAppFn = jest
+        .fn<() => Promise<GetAppResponse>>()
+        .mockResolvedValue(mockAppWithBinary)
+
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((): Promise<Response> => {
+          return Promise.resolve(
+            createMockResponse<GetBinaryResponse>({
+              ok: true,
+              data: mockBinaryResponse
+            })
+          )
+        })
+
+      const result = await appendAppIncludes(mockApiConfig, mockGetAppFn)
+        .includeBinary()
+        .includeBinary()
+        .includeBinary()
+
+      expect(result).toEqual({
+        ...mockAppWithBinary,
+        binary: mockBinaryResponse
+      })
+      expect(mockGetAppFn).toHaveBeenCalledTimes(1)
+      // Should only fetch binary once due to caching
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('throws error when binary fetch fails with includeBinary', async () => {
+      const mockGetAppFn = jest
+        .fn<() => Promise<GetAppResponse>>()
+        .mockResolvedValue(mockAppWithBinary)
+
+      jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((): Promise<Response> => {
+          return Promise.resolve(
+            createMockResponse({
+              ok: false
+            })
+          )
+        })
+
+      await expect(
+        appendAppIncludes(mockApiConfig, mockGetAppFn).includeBinary()
+      ).rejects.toThrow('Error fetching binary: Bad Request')
+    })
+
+    it('handles network errors gracefully', async () => {
+      const mockGetAppFn = jest
+        .fn<() => Promise<GetAppResponse>>()
+        .mockRejectedValue(new Error('Network error'))
+
+      await expect(
+        appendAppIncludes(mockApiConfig, mockGetAppFn)
+      ).rejects.toThrow('Network error')
+    })
+
+    it('works with getApp function wrapper', async () => {
       jest
         .spyOn(globalThis, 'fetch')
         .mockImplementation((): Promise<Response> => {
@@ -158,7 +370,9 @@ describe('Application functions', () => {
           )
         })
 
-      const result = await getEnhancedApp(mockApiConfig, 56891)
+      const result = await appendAppIncludes(mockApiConfig, () =>
+        getApp(mockApiConfig, 56891)
+      )
 
       expect(result).toEqual(mockAppWithBinary)
       expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -172,200 +386,31 @@ describe('Application functions', () => {
       )
     })
 
-    it('includes binary data when includeBinary is chained', async () => {
-      let fetchCallCount = 0
-      jest
-        .spyOn(globalThis, 'fetch')
-        // @ts-expect-error - Mock implementation for fetch
-        .mockImplementation((url: string): Promise<Response> => {
-          fetchCallCount++
-
-          if (url.includes('/apps/')) {
-            return Promise.resolve(
-              createMockResponse<GetAppResponse>({
-                ok: true,
-                data: mockAppWithBinary
-              })
-            )
-          } else if (url.includes('/binaries/')) {
-            return Promise.resolve(
-              createMockResponse<GetBinaryResponse>({
-                ok: true,
-                data: mockBinaryResponse
-              })
-            )
-          }
-
-          return Promise.reject(new Error('Unexpected URL'))
-        })
-
-      const result = await getEnhancedApp(mockApiConfig, 56891).includeBinary()
-
-      expect(fetchCallCount).toBe(2)
-      expect(result).toEqual({
-        ...mockAppWithBinary,
-        binary: mockBinaryResponse
-      })
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${mockApiUrl}/fastedge/v1/apps/56891`,
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            Authorization: `APIKey ${mockApiKey}`
-          })
-        })
-      )
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${mockApiUrl}/fastedge/v1/binaries/12345`,
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            Authorization: `APIKey ${mockApiKey}`
-          })
-        })
-      )
-    })
-
-    it('handles app without binary when includeBinary is chained', async () => {
-      jest
-        .spyOn(globalThis, 'fetch')
-        .mockImplementation((): Promise<Response> => {
-          return Promise.resolve(
-            createMockResponse<GetAppResponse>({
-              ok: true,
-              data: mockAppWithoutBinary
-            })
-          )
-        })
-
-      const result = await getEnhancedApp(mockApiConfig, 56892).includeBinary()
-
-      expect(result).toEqual(mockAppWithoutBinary)
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1)
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${mockApiUrl}/fastedge/v1/apps/56892`,
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            Authorization: `APIKey ${mockApiKey}`
-          })
-        })
-      )
-    })
-
-    it('supports multiple chaining of includeBinary', async () => {
-      let fetchCallCount = 0
-      jest
-        .spyOn(globalThis, 'fetch')
-        // @ts-expect-error - Mock implementation for fetch
-        .mockImplementation((url: string): Promise<Response> => {
-          fetchCallCount++
-
-          if (url.includes('/apps/')) {
-            return Promise.resolve(
-              createMockResponse<GetAppResponse>({
-                ok: true,
-                data: mockAppWithBinary
-              })
-            )
-          } else if (url.includes('/binaries/')) {
-            return Promise.resolve(
-              createMockResponse<GetBinaryResponse>({
-                ok: true,
-                data: mockBinaryResponse
-              })
-            )
-          }
-
-          return Promise.reject(new Error('Unexpected URL'))
-        })
-
-      const result = await getEnhancedApp(mockApiConfig, 56891)
-        .includeBinary()
-        .includeBinary()
-        .includeBinary()
-
-      expect(fetchCallCount).toBe(2) // 1 app call + 1 binary call
-      expect(result).toEqual({
-        ...mockAppWithBinary,
-        binary: mockBinaryResponse
-      })
-    })
-
-    it('throws error when app fetch fails', async () => {
+    it('works with getAppByName function wrapper', async () => {
       jest
         .spyOn(globalThis, 'fetch')
         .mockImplementation((): Promise<Response> => {
           return Promise.resolve(
             createMockResponse({
-              ok: false
-            })
-          )
-        })
-
-      await expect(getEnhancedApp(mockApiConfig, 56891)).rejects.toThrow(
-        'Error fetching application: Bad Request'
-      )
-    })
-
-    it('throws error when binary fetch fails with includeBinary', async () => {
-      jest
-        .spyOn(globalThis, 'fetch')
-        // @ts-expect-error - Mock implementation for fetch
-        .mockImplementation((url: string): Promise<Response> => {
-          if (url.includes('/apps/')) {
-            return Promise.resolve(
-              createMockResponse<GetAppResponse>({
-                ok: true,
-                data: mockAppWithBinary
-              })
-            )
-          } else if (url.includes('/binaries/')) {
-            return Promise.resolve(
-              createMockResponse({
-                ok: false
-              })
-            )
-          }
-
-          return Promise.reject(new Error('Unexpected URL'))
-        })
-
-      await expect(
-        getEnhancedApp(mockApiConfig, 56891).includeBinary()
-      ).rejects.toThrow('Error fetching binary: Bad Request')
-    })
-
-    it('handles network errors gracefully', async () => {
-      jest
-        .spyOn(globalThis, 'fetch')
-        .mockRejectedValue(new Error('Network error'))
-
-      await expect(getEnhancedApp(mockApiConfig, 56891)).rejects.toThrow(
-        'Error fetching application: Network error'
-      )
-    })
-
-    it('accepts both string and number IDs', async () => {
-      jest
-        .spyOn(globalThis, 'fetch')
-        .mockImplementation((): Promise<Response> => {
-          return Promise.resolve(
-            createMockResponse<GetAppResponse>({
               ok: true,
-              data: mockAppWithBinary
+              data: { apps: [mockAppWithBinary] }
             })
           )
         })
 
-      const resultWithNumber = await getEnhancedApp(mockApiConfig, 56891)
-      const resultWithString = await getEnhancedApp(mockApiConfig, '56891')
+      const result = await appendAppIncludes(mockApiConfig, () =>
+        getAppByName(mockApiConfig, 'gnome-maze')
+      )
 
-      expect(resultWithNumber).toEqual(mockAppWithBinary)
-      expect(resultWithString).toEqual(mockAppWithBinary)
+      expect(result).toEqual(mockAppWithBinary)
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${mockApiUrl}/fastedge/v1/apps/56891`,
-        expect.anything()
+        `${mockApiUrl}/fastedge/v1/apps?name=gnome-maze`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `APIKey ${mockApiKey}`
+          })
+        })
       )
     })
   })
@@ -408,7 +453,7 @@ describe('Application functions', () => {
           return Promise.resolve(
             createMockResponse({
               ok: true,
-              data: mockAppsObj
+              data: { apps: mockAppsObj }
             })
           )
         })
@@ -447,7 +492,7 @@ describe('Application functions', () => {
           return Promise.resolve(
             createMockResponse({
               ok: true,
-              data: mockAppsObj
+              data: { apps: mockAppsObj }
             })
           )
         })
@@ -620,6 +665,7 @@ describe('Application functions', () => {
       )
     })
   })
+
   describe('updateApp', () => {
     const mockAppResource: UpdateAppResource = {
       id: 123456,

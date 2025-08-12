@@ -155,5 +155,6 @@ export type {
   GetAppResponseWithBinary,
   GetAppsQueryParams,
   GetAppsResponse,
+  GetAppsResponseItem,
   UpdateAppResource
 }

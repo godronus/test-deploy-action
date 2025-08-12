@@ -11,51 +11,62 @@ import type {
   GetAppResponseWithBinary,
   GetAppsQueryParams,
   GetAppsResponse,
+  GetAppsResponseItem,
   UpdateAppResource
 } from '../types.js'
 
-function getEnhancedApp(
+const createEnhancedAppResponse = <
+  T extends GetAppsResponseItem | GetAppResponse
+>(
   apiConfig: ApiConfig,
-  id: string | number
-): EnhancedAppResponse {
-  // Add any enhancements or modifications to the app object here
-  const getAppPromise = getApp(apiConfig, id)
+  basePromise: Promise<T>
+): EnhancedAppResponse<T> => {
+  return Object.assign(basePromise, {
+    includeBinary: (): EnhancedAppResponse<
+      GetAppResponseWithBinary | GetAppResponse
+    > => {
+      const binaryPromise = basePromise.then(async (app: any) => {
+        console.log('Farq: app enhancing', app)
+        if (app.binary && typeof app.binary === 'number') {
+          const binaryData = await getBinary(apiConfig, app.binary)
+          return { ...app, binary: binaryData }
+        }
+        return { ...app }
+      })
+      return createEnhancedAppResponse(apiConfig, binaryPromise)
+    }
 
-  const createEnhancedResponse = <T>(
-    basePromise: Promise<T>
-  ): EnhancedAppResponse<T> => {
-    return Object.assign(basePromise, {
-      includeBinary: (): EnhancedAppResponse<
-        GetAppResponseWithBinary | GetAppResponse
-      > => {
-        const binaryPromise = basePromise.then(async (app: any) => {
-          if (app.binary && typeof app.binary === 'number') {
-            const binaryData = await getBinary(apiConfig, app.binary)
-            return { ...app, binary: binaryData }
-          }
-          return { ...app }
-        })
-        return createEnhancedResponse(binaryPromise)
-      }
-
-      //   includeTemplate: (): EnhancedAppResponse<GetAppResponseComplete> => {
-      //     const templatePromise = basePromise.then(async (app: any) => {
-      //       if (app.template) {
-      //         const templateData = await templates.getTemplate(
-      //           this.apiConfig,
-      //           app.template
-      //         )
-      //         return { ...app, template: templateData }
-      //       }
-      //       return { ...app }
-      //     })
-      //     return createEnhancedResponse(templatePromise)
-      //   }
-    }) as EnhancedAppResponse<T>
-  }
-
-  return createEnhancedResponse(getAppPromise)
+    //   includeTemplate: (): EnhancedAppResponse<GetAppResponseComplete> => {
+    //     const templatePromise = basePromise.then(async (app: any) => {
+    //       if (app.template) {
+    //         const templateData = await templates.getTemplate(
+    //           this.apiConfig,
+    //           app.template
+    //         )
+    //         return { ...app, template: templateData }
+    //       }
+    //       return { ...app }
+    //     })
+    //     return createEnhancedResponse(templatePromise)
+    //   }
+  }) as EnhancedAppResponse<T>
 }
+
+function appendAppIncludes<T extends GetAppsResponseItem | GetAppResponse>(
+  apiConfig: ApiConfig,
+  getAppFn: () => Promise<T>
+): EnhancedAppResponse<T> {
+  return createEnhancedAppResponse(apiConfig, getAppFn())
+}
+
+// function getEnhancedApp(
+//   apiConfig: ApiConfig,
+//   id: string | number
+// ): EnhancedAppResponse {
+//   // Add any enhancements or modifications to the app object here
+//   const getAppPromise = getApp(apiConfig, id)
+//   return createEnhancedAppResponse(apiConfig, getAppPromise)
+// }
 
 async function getApp(
   apiConfig: ApiConfig,
@@ -88,7 +99,6 @@ async function getApps(
       skipNulls: true,
       addQueryPrefix: true
     })
-
     const response = await fetch(
       `${apiConfig.apiUrl}/fastedge/v1/apps${queryString}`,
       {
@@ -101,11 +111,36 @@ async function getApps(
     if (!response.ok) {
       throw new Error(response.statusText)
     }
-    return response.json() as Promise<GetAppsResponse>
+    const jsonResponse = (await response.json()) as Record<
+      'apps',
+      GetAppsResponse
+    >
+    return jsonResponse.apps ?? []
   } catch (error) {
     throw new Error(
       `Error fetching applications: ${error instanceof Error ? error.message : error}`
     )
+  }
+}
+
+async function getAppByName(
+  apiConfig: ApiConfig,
+  name: string
+): Promise<GetAppsResponseItem> {
+  try {
+    console.log('Farq: FastEdgeClient -> getapps -> name', name)
+    const apps = await getApps(apiConfig, { name })
+    console.log('Farq: apps', apps[0])
+    if (apps.length === 0) {
+      throw new Error(`Application with name "${name}" not found`)
+    }
+    return apps[0]
+  } catch (error) {
+    console.log('Farq: error', error)
+    throw error
+    // throw new Error(
+    //   `Error fetching application by name: ${error instanceof Error ? error.message : error}`
+    // )
   }
 }
 
@@ -160,4 +195,11 @@ async function updateApp(
   }
 }
 
-export { createApp, getApp, getApps, getEnhancedApp, updateApp }
+export {
+  appendAppIncludes,
+  createApp,
+  getApp,
+  getAppByName,
+  getApps,
+  updateApp
+}
