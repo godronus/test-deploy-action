@@ -21,9 +21,9 @@ inputs:
   app_name:
     description: Name of the application.
     required: true
-  api_type:
-    description: The API type for the application. 'proxy-wasm' or 'wasi-http'.
-    required: true
+  # api_type:
+  #   description: The API type for the application. 'proxy-wasm' or 'wasi-http'.
+  #   required: true
   # Optional inputs for the action.
   api_url:
     description: The base URL of the FastEdge API.

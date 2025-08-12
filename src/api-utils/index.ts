@@ -53,10 +53,15 @@ export class FastEdgeClient {
        * Create a new application from a binary or template
        * @param resource - Application creation parameters
        */
-      createApp: (resource: Parameters<typeof apps.createApp>[1]) =>
-        apps.createApp(this.apiConfig, resource)
+      create: (resource: Parameters<typeof apps.createApp>[1]) =>
+        apps.createApp(this.apiConfig, resource),
 
-      // Add other app methods as needed
+      /**
+       * Update an existing application
+       * @param resource - Application creation parameters
+       */
+      update: (resource: Parameters<typeof apps.updateApp>[1]) =>
+        apps.updateApp(this.apiConfig, resource)
     }
   }
 

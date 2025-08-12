@@ -26,7 +26,6 @@ const createEnhancedAppResponse = <
       GetAppResponseWithBinary | GetAppResponse
     > => {
       const binaryPromise = basePromise.then(async (app: any) => {
-        console.log('Farq: app enhancing', app)
         if (app.binary && typeof app.binary === 'number') {
           const binaryData = await getBinary(apiConfig, app.binary)
           return { ...app, binary: binaryData }
@@ -82,7 +81,11 @@ async function getApp(
     if (!response.ok) {
       throw new Error(response.statusText)
     }
-    return response.json() as Promise<GetAppResponse>
+    const app = (await response.json()) as GetAppResponse
+    return {
+      ...app,
+      id: Number.parseInt(id.toString(), 10) // Ensure ID is a number
+    }
   } catch (error) {
     throw new Error(
       `Error fetching application: ${error instanceof Error ? error.message : error}`
@@ -127,21 +130,11 @@ async function getAppByName(
   apiConfig: ApiConfig,
   name: string
 ): Promise<GetAppsResponseItem> {
-  try {
-    console.log('Farq: FastEdgeClient -> getapps -> name', name)
-    const apps = await getApps(apiConfig, { name })
-    console.log('Farq: apps', apps[0])
-    if (apps.length === 0) {
-      throw new Error(`Application with name "${name}" not found`)
-    }
-    return apps[0]
-  } catch (error) {
-    console.log('Farq: error', error)
-    throw error
-    // throw new Error(
-    //   `Error fetching application by name: ${error instanceof Error ? error.message : error}`
-    // )
+  const apps = await getApps(apiConfig, { name })
+  if (apps.length === 0) {
+    throw new Error(`Application with name "${name}" not found`)
   }
+  return apps[0]
 }
 
 async function createApp(
@@ -158,10 +151,13 @@ async function createApp(
       body: JSON.stringify(app)
     })
     if (!response.ok) {
+      // TODO: Figure out better error handling
+      console.log('Farq: response not ok', await response.text())
       throw new Error(response.statusText)
     }
     return response.json() as Promise<GetAppResponse>
   } catch (error) {
+    console.log('Farq: error', error)
     throw new Error(
       `Error creating application: ${error instanceof Error ? error.message : error}`
     )

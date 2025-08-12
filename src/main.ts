@@ -1,6 +1,14 @@
 import * as core from '@actions/core'
 
-import { FastEdgeClient } from './api-utils/index.js'
+import {
+  ApiType,
+  CreateAppFromBinaryResource,
+  FastEdgeClient,
+  GetBinaryResponse,
+  UpdateAppResource,
+  UploadBinaryResponse
+} from './api-utils/index.js'
+import { createAppResourceFromInputs, hasWasmBinaryChanged } from './utils.js'
 
 /**
  * The main function for the action.
@@ -18,30 +26,56 @@ export async function run(): Promise<void> {
 
     // Check if the app exists
     const appName: string = core.getInput('app_name')
-    console.log('Farq: appName', appName)
     const appId: string = core.getInput('app_id')
-    console.log('Farq: appId', appId)
 
     let app
     if (appId && appId !== '0') {
       app = await fastEdgeClient.apps.get(appId).includeBinary()
     } else if (appName) {
-      app = await fastEdgeClient.apps.getByName(appName).includeBinary()
+      try {
+        app = await fastEdgeClient.apps.getByName(appName).includeBinary()
+      } catch {
+        core.debug(
+          `Application with name "${appName}" not found - proceed with creating new application`
+        )
+      }
     }
-    console.log('Farq: app', app)
+    if (!app) {
+      // Create a new application
+      const binary = await fastEdgeClient.binaries.upload(
+        core.getInput('wasm_file')
+      )
 
-    // const wasmFile: string = core.getInput('wasm_file')
+      const appResource = {
+        ...createAppResourceFromInputs(),
+        binary: binary.id
+      } as CreateAppFromBinaryResource
 
-    // const binary = await deployBinary(wasmFile)
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    // core.debug(`Waiting ${ms} milliseconds ...`)
+      const createdApp = await fastEdgeClient.apps.create(appResource)
+      core.notice(`Application created with ID: ${createdApp.id}`)
+      core.setOutput('app_id', createdApp.id)
+      core.setOutput('binary_id', createdApp.binary)
+      return
+    }
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    core.debug(new Date().toTimeString())
+    console.log('Farq: app already exists, TRY updating...')
+    let binary: GetBinaryResponse | UploadBinaryResponse = app.binary
+    if (!app.binary.checksum || hasWasmBinaryChanged(app.binary.checksum)) {
+      core.debug('Binary has changed, uploading new binary...')
+      binary = await fastEdgeClient.binaries.upload(core.getInput('wasm_file'))
+    }
+    const appResource = {
+      ...createAppResourceFromInputs(),
+      binary: binary.id,
+      id: app.id
+    } as UpdateAppResource
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    console.log('Farq: UPDATE appResource', appResource)
+
+    const updatedApp = await fastEdgeClient.apps.update(appResource)
+    core.notice(`Application updated with ID: ${updatedApp.id}`)
+    core.setOutput('app_id', updatedApp.id)
+    core.setOutput('binary_id', updatedApp.binary)
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
