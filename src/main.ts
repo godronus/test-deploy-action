@@ -1,7 +1,6 @@
 import * as core from '@actions/core'
 
 import {
-  ApiType,
   CreateAppFromBinaryResource,
   FastEdgeClient,
   GetBinaryResponse,
@@ -20,6 +19,14 @@ export async function run(): Promise<void> {
     const apiKey: string = core.getInput('api_key')
     core.debug(`API Key: ${apiKey}`)
     const apiUrl: string = core.getInput('api_url')
+    const wasmFile: string = core.getInput('wasm_file')
+
+    if (!apiKey || !apiUrl || !wasmFile) {
+      core.setFailed(
+        'Mandatory inputs are missing: api_key, api_url, wasm_file'
+      )
+      return
+    }
 
     // Create a FastEdge API client instance
     const fastEdgeClient = new FastEdgeClient(apiKey, apiUrl)
@@ -29,10 +36,13 @@ export async function run(): Promise<void> {
     const appId: string = core.getInput('app_id')
 
     let app
+    console.log('Farq: appId', appId)
     if (appId && appId !== '0') {
       app = await fastEdgeClient.apps.get(appId).includeBinary()
+      console.log('Farq: app', app)
     } else if (appName) {
       try {
+        console.log('Farq: Looking for app')
         app = await fastEdgeClient.apps.getByName(appName).includeBinary()
       } catch {
         core.debug(
@@ -55,6 +65,7 @@ export async function run(): Promise<void> {
       core.notice(`Application created with ID: ${createdApp.id}`)
       core.setOutput('app_id', createdApp.id)
       core.setOutput('binary_id', createdApp.binary)
+      console.log('Farq: I am finished creating app', createdApp)
       return
     }
 

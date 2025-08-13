@@ -25,14 +25,17 @@ const createEnhancedAppResponse = <
     includeBinary: (): EnhancedAppResponse<
       GetAppResponseWithBinary | GetAppResponse
     > => {
-      const binaryPromise = basePromise.then(async (app: any) => {
+      const binaryPromise = basePromise.then(async (app: T) => {
         if (app.binary && typeof app.binary === 'number') {
           const binaryData = await getBinary(apiConfig, app.binary)
           return { ...app, binary: binaryData }
         }
         return { ...app }
       })
-      return createEnhancedAppResponse(apiConfig, binaryPromise)
+      return createEnhancedAppResponse(
+        apiConfig,
+        binaryPromise
+      ) as EnhancedAppResponse<GetAppResponseWithBinary | GetAppResponse>
     }
 
     //   includeTemplate: (): EnhancedAppResponse<GetAppResponseComplete> => {
