@@ -56,4 +56,4 @@ outputs:
 
 runs:
   using: node20
-  main: dist/deploy-app/index.js
+  main: ../dist/deploy-app/index.js
