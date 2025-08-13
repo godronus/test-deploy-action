@@ -6,7 +6,7 @@ import {
   GetBinaryResponse,
   UpdateAppResource,
   UploadBinaryResponse
-} from './api-utils/index.js'
+} from '../api-utils/index.js'
 import { createAppResourceFromInputs, hasWasmBinaryChanged } from './utils.js'
 
 /**
@@ -36,13 +36,10 @@ export async function run(): Promise<void> {
     const appId: string = core.getInput('app_id')
 
     let app
-    console.log('Farq: appId', appId)
     if (appId && appId !== '0') {
       app = await fastEdgeClient.apps.get(appId).includeBinary()
-      console.log('Farq: app', app)
     } else if (appName) {
       try {
-        console.log('Farq: Looking for app')
         app = await fastEdgeClient.apps.getByName(appName).includeBinary()
       } catch {
         core.debug(

@@ -155,12 +155,10 @@ async function createApp(
     })
     if (!response.ok) {
       // TODO: Figure out better error handling
-      console.log('Farq: response not ok', await response.text())
       throw new Error(response.statusText)
     }
     return response.json() as Promise<GetAppResponse>
   } catch (error) {
-    console.log('Farq: error', error)
     throw new Error(
       `Error creating application: ${error instanceof Error ? error.message : error}`
     )

@@ -20,7 +20,7 @@ jest.unstable_mockModule('@actions/core', () => ({
 
 await import('@actions/core')
 const { createAppResourceFromInputs, hasWasmBinaryChanged } = await import(
-  '../src/utils.js'
+  '../../src/deploy-app/utils.js'
 )
 
 describe('Utils functions', () => {

@@ -6,7 +6,7 @@ import path from 'node:path'
 import type {
   CreateAppFromBinaryResource,
   CreateAppFromTemplateResource
-} from './api-utils/types.js'
+} from '../api-utils/types.js'
 
 type DictionaryInput = 'env' | 'rsp_headers' | 'secrets'
 

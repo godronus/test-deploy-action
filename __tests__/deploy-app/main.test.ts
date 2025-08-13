@@ -32,13 +32,13 @@ jest.unstable_mockModule('@actions/core', () => ({
 }))
 
 // Mock utils module
-jest.unstable_mockModule('../src/utils.js', () => ({
+jest.unstable_mockModule('../../src/deploy-app/utils.js', () => ({
   createAppResourceFromInputs: mockCreateAppResourceFromInputs,
   hasWasmBinaryChanged: mockHasWasmBinaryChanged
 }))
 
 // Mock FastEdgeClient
-jest.unstable_mockModule('../src/api-utils/index.js', () => ({
+jest.unstable_mockModule('../../src/api-utils/index.js', () => ({
   FastEdgeClient: jest.fn().mockImplementation(() => ({
     apps: {
       getAll: mockGetApps,
@@ -62,7 +62,7 @@ jest.unstable_mockModule('../src/api-utils/index.js', () => ({
 }))
 
 // Import the main function after mocking
-const { run } = await import('../src/main.js')
+const { run } = await import('../../src/deploy-app/main.js')
 
 describe('main.ts', () => {
   const mockApiKey = 'test-api-key'

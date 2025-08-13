@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import fs from 'node:fs'
 
-import { createMockResponse } from '../__fixtures__/mockResponse.js'
-import { getBinary, uploadBinary } from '../src/api-utils/binaries/index'
+import { createMockResponse } from '../../__fixtures__/mockResponse.js'
+import { getBinary, uploadBinary } from '../../src/api-utils/binaries/index'
 import {
   ApiType,
   GetBinaryResponse,
   UploadBinaryResponse
-} from '../src/api-utils/types'
+} from '../../src/api-utils/types'
 
 const mockApiUrl = 'https://api.example.com'
 const mockApiKey = 'test-api-key'

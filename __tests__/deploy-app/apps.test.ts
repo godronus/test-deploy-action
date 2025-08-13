@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 
-import { createMockResponse } from '../__fixtures__/mockResponse.js'
+import { createMockResponse } from '../../__fixtures__/mockResponse.js'
 import {
   appendAppIncludes,
   createApp,
@@ -8,7 +8,7 @@ import {
   getAppByName,
   getApps,
   updateApp
-} from '../src/api-utils/apps/index.js'
+} from '../../src/api-utils/apps/index.js'
 
 import type {
   ApiType,
@@ -20,7 +20,7 @@ import type {
   GetAppsResponseItem,
   GetBinaryResponse,
   UpdateAppResource
-} from '../src/api-utils/types.js'
+} from '../../src/api-utils/types.js'
 
 const mockApiUrl = 'https://api.example.com'
 const mockApiKey = 'test-api-key'
@@ -62,10 +62,10 @@ describe('Application functions', () => {
           )
         })
 
-      const result = await getApp(mockApiConfig, 589)
+      const result = await getApp(mockApiConfig, 56891)
       expect(result).toEqual(mockAppObj)
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${mockApiUrl}/fastedge/v1/apps/589`,
+        `${mockApiUrl}/fastedge/v1/apps/56891`,
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
