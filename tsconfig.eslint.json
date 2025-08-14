@@ -10,9 +10,10 @@
     "__fixtures__",
     "__tests__",
     "__mocks__/**/*.ts",
-    "src",
+    "src/**/*.ts",
     "eslint.config.mjs",
     "jest.config.js",
-    "rollup.config.ts"
+    "rollup-app.config.ts",
+    "rollup-secret.config.ts"
   ]
 }

@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 
 import { FastEdgeClient } from '../api-utils/index.js'
-import { createSecretResourceFromInputs } from './utils.js'
+import { createSecretResourceFromInputs, filterSecretSlots } from './utils.js'
 
 /**
  * The main function for the action.
@@ -36,11 +36,13 @@ export async function run(): Promise<void> {
     }
 
     let secret
-    if (secretId) {
+    if (secretId && secretId !== '0') {
       secret = await fastEdgeClient.secrets.get(secretId)
     } else if (secretName) {
       try {
-        secret = await fastEdgeClient.secrets.getByName(secretName)
+        const secretFromName =
+          await fastEdgeClient.secrets.getByName(secretName)
+        secret = await fastEdgeClient.secrets.get(secretFromName.id)
       } catch {
         core.debug(`Secret with name "${secretName}" not found.`)
       }
@@ -54,8 +56,10 @@ export async function run(): Promise<void> {
       return
     }
 
+    const secretUpdate = filterSecretSlots(secretResource, secret)
+
     const updatedSecret = await fastEdgeClient.secrets.update({
-      ...secretResource,
+      ...secretUpdate,
       id: secret.id
     })
     core.notice(`Secret updated with ID: ${updatedSecret.id}`)

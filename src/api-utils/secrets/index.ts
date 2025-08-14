@@ -128,7 +128,11 @@ async function updateSecret(
     if (!response.ok) {
       throw new Error(response.statusText)
     }
-    return response.json() as Promise<UpdateSecretResponse>
+    const updateRes = (await response.json()) as UpdateSecretResponse
+    return {
+      ...updateRes,
+      id: Number.parseInt(secret.id.toString(), 10) // Ensure ID is included and a number
+    }
   } catch (error) {
     throw new Error(
       `Error updating secret: ${error instanceof Error ? error.message : error}`

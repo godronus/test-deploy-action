@@ -1,6 +1,10 @@
 import * as core from '@actions/core'
 
-import type { SecretResource, SecretSlots } from '../api-utils/types.js'
+import type {
+  GetSecretResponse,
+  SecretResource,
+  SecretSlots
+} from '../api-utils/types.js'
 
 /**
  * Type guard to validate if an object is a valid SecretSlots
@@ -68,4 +72,29 @@ function createSecretResourceFromInputs(): SecretResource {
   }
 }
 
-export { createSecretResourceFromInputs }
+/**
+ * Marks secret slots for deletion if they have not been provided.
+ */
+
+function filterSecretSlots(
+  secretResource: SecretResource,
+  existingSecret: GetSecretResponse
+): SecretResource {
+  const secretSlotsToRemove = existingSecret.secret_slots
+    .filter(
+      (slot) => !secretResource.secret_slots.some((s) => s.slot === slot.slot)
+    )
+    .map((slot) => ({
+      slot: slot.slot
+    }))
+
+  return {
+    ...secretResource,
+    secret_slots: [
+      ...secretResource.secret_slots,
+      ...secretSlotsToRemove
+    ] as unknown as Array<SecretSlots>
+  }
+}
+
+export { createSecretResourceFromInputs, filterSecretSlots }

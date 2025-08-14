@@ -1,57 +1,13 @@
-name: FastEdge Deploy Secrets Action
-description: This action deploys a FastEdge Secret.
-author: Gcore - FastEdge Team
-
-# Add your action's branding here. This will appear on the GitHub Marketplace.
-# https://haya14busa.github.io/github-action-brandings/
-branding:
-  icon: upload-cloud
-  color: orange
-
-# Define your inputs here.
-inputs:
-  # Required inputs for the action.
-  api_key:
-    description: Your FastEdge API key.
-    required: true
-  secret_name:
-    description: Name of the secret.
-    required: true
-
-  # api_type:
-  #   description: The API type for the application. 'proxy-wasm' or 'wasi-http'.
-  #   required: true
-  # Optional inputs for the action.
-  api_url:
-    description: The base URL of the FastEdge API.
-    required: false
-    # todo - change to prod url
-    default: 'https://api.preprod.world'
-  secret_id:
-    description: Unique identifier of the secret.
-    required: false
-    default: 0
-  comment:
-    description: Description of the secret.
-    required: false
-    default: ''
-  secret:
-    description:
-      Secret value (defaults to slot "0") only used if you do not want to manage
-      slots.
-    required: false
-    default: ''
-  secret_slots:
-    description:
-      If you want to manage slots, provide a JSON string with slot values.
-    required: false
-    default: '[]'
-
-# Define your outputs here.
-outputs:
-  secret_id:
-    description: The ID of the secret.
-
+name: 'FastEdge: Stub'
+description:
+  "Stub: Don't use this action directly. Read [the
+  documentation](https://github.com/G-Core/FastEdge-examples) instead."
+author: 'GitHub'
 runs:
-  using: node20
-  main: dist/secrets/index.js
+  using: 'composite'
+  steps:
+    - name: 'Stub'
+      run: |
+        echo 'This is a stub. Read [the documentation](https://github.com/G-Core/FastEdge-examples) instead.'
+        exit 1
+      shell: bash

@@ -30261,14 +30261,10 @@ async function getBinary(apiConfig, id) {
             throw new Error(response.statusText);
         }
         const fetchedBinary = (await response.json());
-        // TODO: Remove this once the API is fixed
-        if (fetchedBinary.id === 0) {
-            return {
-                ...fetchedBinary,
-                id: Number.parseInt(id.toString(), 10)
-            };
-        }
-        return fetchedBinary;
+        return {
+            ...fetchedBinary,
+            id: Number.parseInt(id.toString(), 10) // Ensure ID is included and always a number
+        };
     }
     catch (error) {
         throw new Error(`Error fetching binary: ${error instanceof Error ? error.message : error}`);
@@ -30485,7 +30481,11 @@ async function updateSecret(apiConfig, secret) {
         if (!response.ok) {
             throw new Error(response.statusText);
         }
-        return response.json();
+        const updateRes = (await response.json());
+        return {
+            ...updateRes,
+            id: Number.parseInt(secret.id.toString(), 10) // Ensure ID is included and a number
+        };
     }
     catch (error) {
         throw new Error(`Error updating secret: ${error instanceof Error ? error.message : error}`);
@@ -30657,10 +30657,6 @@ async function run() {
             catch {
                 coreExports.info(`Application with name "${appName}" not found`);
             }
-        }
-        if (!app && !appName) {
-            coreExports.setFailed('Application not found. Please provide a valid app_name or app_id.');
-            return;
         }
         if (!app) {
             coreExports.info(`Creating new application with name: ${appName}`);

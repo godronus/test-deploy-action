@@ -2,6 +2,8 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import {
   CreateSecretResponse,
   GetSecretResponse,
+  GetSecretsResponseItem,
+  SecretResource,
   UpdateSecretResponse
 } from '../../src/api-utils/types.js'
 
@@ -14,6 +16,7 @@ const mockDebug = jest.fn()
 const mockInfo = jest.fn()
 
 const mockCreateSecretResourceFromInputs = jest.fn()
+const mockFilterSecretSlots = jest.fn()
 
 const mockGetSecrets = jest.fn()
 const mockGetSecret = jest.fn()
@@ -35,7 +38,8 @@ jest.unstable_mockModule('@actions/core', () => ({
 
 // Mock utils module
 jest.unstable_mockModule('../../src/secrets/utils.js', () => ({
-  createSecretResourceFromInputs: mockCreateSecretResourceFromInputs
+  createSecretResourceFromInputs: mockCreateSecretResourceFromInputs,
+  filterSecretSlots: mockFilterSecretSlots
 }))
 
 // Mock FastEdgeClient
@@ -86,28 +90,41 @@ describe('secrets main.ts', () => {
           comment: 'Test secret',
           secret_slots: [{ slot: 0, value: 'encrypted-value' }]
         }
-        const mockSecretResource = {
+        const mockSecretResource: SecretResource = {
           name: mockSecretName,
-          comment: 'Test secret',
+          comment: 'Test secret updated comment',
           secret_slots: [{ slot: 3, value: 'new-value' }]
+        }
+        const mockFilteredResource: SecretResource = {
+          name: mockSecretName,
+          comment: 'Test secret updated comment',
+          secret_slots: [
+            { slot: 3, value: 'new-value' },
+            { slot: 0 } // Marked for deletion
+          ]
         }
         const mockUpdatedSecret: UpdateSecretResponse = {
           id: 789,
           name: mockSecretName,
-          comment: 'Test secret',
+          comment: 'Test secret updated comment',
           app_count: 0,
           secret_slots: [{ slot: 3, value: 'encrypted-value' }]
         }
 
         mockGetSecret.mockImplementation(() => mockSecretResponse)
         mockCreateSecretResourceFromInputs.mockReturnValue(mockSecretResource)
+        mockFilterSecretSlots.mockReturnValue(mockFilteredResource)
         mockUpdateSecret.mockImplementation(() => mockUpdatedSecret)
 
         await run()
 
         expect(mockGetSecret).toHaveBeenCalledWith(mockSecretId)
-        expect(mockUpdateSecret).toHaveBeenCalledWith({
+        expect(mockFilterSecretSlots).toHaveBeenCalledWith(
           mockSecretResource,
+          mockSecretResponse
+        )
+        expect(mockUpdateSecret).toHaveBeenCalledWith({
+          ...mockFilteredResource,
           id: mockSecretResponse.id
         })
         expect(mockNotice).toHaveBeenCalledWith(
@@ -159,7 +176,6 @@ describe('secrets main.ts', () => {
         }
 
         mockGetSecretByName.mockImplementation(() => {
-          console.log('Farq: mockGetSecretByName', mockGetSecretByName)
           throw new Error('Not found')
         })
         mockCreateSecretResourceFromInputs.mockImplementation(
@@ -181,17 +197,32 @@ describe('secrets main.ts', () => {
       })
 
       it('finds existing secret by name when secret_name is provided and no secret_id', async () => {
-        const mockSecret: GetSecretResponse = {
+        const mockSecretByName: GetSecretsResponseItem = {
+          id: 789,
+          name: mockSecretName,
+          app_count: 1,
+          comment: 'Existing secret'
+        }
+        const mockSecretById: GetSecretResponse = {
           id: 789,
           name: mockSecretName,
           app_count: 1,
           comment: 'Existing secret',
           secret_slots: [{ slot: 0, value: 'existing-value' }]
         }
-        const mockSecretResource = {
+        const mockSecretResource: SecretResource = {
           name: mockSecretName,
+          comment: '',
           secret_slots: [
             { slot: 0, value: 'existing-value' },
+            { slot: 2, value: 'new-value' }
+          ]
+        }
+        const mockFilteredResource: SecretResource = {
+          name: mockSecretName,
+          comment: '',
+          secret_slots: [
+            { slot: 0, value: 'updated-value' },
             { slot: 2, value: 'new-value' }
           ]
         }
@@ -206,16 +237,23 @@ describe('secrets main.ts', () => {
           ]
         }
 
-        mockGetSecretByName.mockImplementation(() => mockSecret)
+        mockGetSecretByName.mockImplementation(() => mockSecretByName)
+        mockGetSecret.mockImplementation(() => mockSecretById)
         mockCreateSecretResourceFromInputs.mockReturnValue(mockSecretResource)
+        mockFilterSecretSlots.mockReturnValue(mockFilteredResource)
         mockUpdateSecret.mockImplementation(() => mockUpdatedSecret)
 
         await run()
 
         expect(mockGetSecretByName).toHaveBeenCalledWith(mockSecretName)
-        expect(mockUpdateSecret).toHaveBeenCalledWith({
+        expect(mockGetSecret).toHaveBeenCalledWith(mockSecretByName.id)
+        expect(mockFilterSecretSlots).toHaveBeenCalledWith(
           mockSecretResource,
-          id: mockSecret.id
+          mockSecretById
+        )
+        expect(mockUpdateSecret).toHaveBeenCalledWith({
+          ...mockFilteredResource,
+          id: mockSecretById.id
         })
         expect(mockNotice).toHaveBeenCalledWith(
           `Secret updated with ID: ${mockUpdatedSecret.id}`
@@ -257,10 +295,15 @@ describe('secrets main.ts', () => {
           name: mockSecretName,
           secret_slots: [{ slot: 0, value: 'updated-value' }]
         }
+        const mockFilteredResource = {
+          name: mockSecretName,
+          secret_slots: [{ slot: 0, value: 'updated-value' }]
+        }
         const mockError = new Error('Update failed')
 
         mockGetSecretByName.mockImplementation(() => mockSecret)
         mockCreateSecretResourceFromInputs.mockReturnValue(mockSecretResource)
+        mockFilterSecretSlots.mockReturnValue(mockFilteredResource)
         mockUpdateSecret.mockImplementation(() => {
           throw mockError
         })

@@ -4,7 +4,7 @@
 
 interface SecretSlots {
   slot: number
-  value: string
+  value?: string
 }
 interface Secret {
   id: number
