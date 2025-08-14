@@ -30403,6 +30403,95 @@ async function updateApp(apiConfig, app) {
     }
 }
 
+async function getSecret(apiConfig, id) {
+    try {
+        const response = await fetch(`${apiConfig.apiUrl}/fastedge/v1/secrets/${id}`, {
+            method: 'GET',
+            headers: {
+                Authorization: `APIKey ${apiConfig.apiKey}`
+            }
+        });
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+        const secret = (await response.json());
+        return {
+            ...secret,
+            id: Number.parseInt(id.toString(), 10) // Ensure ID is a number
+        };
+    }
+    catch (error) {
+        throw new Error(`Error fetching secret: ${error instanceof Error ? error.message : error}`);
+    }
+}
+async function getSecrets(apiConfig, query) {
+    try {
+        const queryString = qs.stringify(query, {
+            skipNulls: true,
+            addQueryPrefix: true
+        });
+        const response = await fetch(`${apiConfig.apiUrl}/fastedge/v1/secrets${queryString}`, {
+            method: 'GET',
+            headers: {
+                Authorization: `APIKey ${apiConfig.apiKey}`
+            }
+        });
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+        const jsonResponse = (await response.json());
+        return jsonResponse.secrets ?? [];
+    }
+    catch (error) {
+        throw new Error(`Error fetching secrets: ${error instanceof Error ? error.message : error}`);
+    }
+}
+async function getSecretByName(apiConfig, name) {
+    const secrets = await getSecrets(apiConfig, { secret_name: name });
+    if (secrets.length === 0) {
+        throw new Error(`Secret with name "${name}" not found`);
+    }
+    return secrets[0];
+}
+async function createSecret(apiConfig, secret) {
+    try {
+        const response = await fetch(`${apiConfig.apiUrl}/fastedge/v1/secrets`, {
+            method: 'POST',
+            headers: {
+                Authorization: `APIKey ${apiConfig.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(secret)
+        });
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+        return response.json();
+    }
+    catch (error) {
+        throw new Error(`Error creating secret: ${error instanceof Error ? error.message : error}`);
+    }
+}
+async function updateSecret(apiConfig, secret) {
+    try {
+        const response = await fetch(`${apiConfig.apiUrl}/fastedge/v1/secrets/${secret.id}`, {
+            method: 'PATCH',
+            headers: {
+                Authorization: `APIKey ${apiConfig.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(secret)
+        });
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+        return response.json();
+    }
+    catch (error) {
+        throw new Error(`Error updating secret: ${error instanceof Error ? error.message : error}`);
+    }
+}
+
 /* istanbul ignore file */
 /**
  * FastEdge API client providing access to all API endpoints
@@ -30467,6 +30556,38 @@ class FastEdgeClient {
             // Add other binary methods as needed
         };
     }
+    /**
+     * Access secret-related API endpoints
+     */
+    get secrets() {
+        return {
+            /**
+             * Get a list of secrets
+             * @param params - Query parameters
+             */
+            getAll: (params = {}) => getSecrets(this.apiConfig, params),
+            /**
+             * Get a specific secret by ID
+             * @param id - Secret ID
+             */
+            get: (id) => getSecret(this.apiConfig, id),
+            /**
+             * Get a specific secret by Name
+             * @param id - Secret ID
+             */
+            getByName: (name) => getSecretByName(this.apiConfig, name),
+            /**
+             * Create a new secret
+             * @param resource - Secret creation parameters
+             */
+            create: (resource) => createSecret(this.apiConfig, resource),
+            /**
+             * Update an existing secret
+             * @param resource - Secret update parameters
+             */
+            update: (resource) => updateSecret(this.apiConfig, resource)
+        };
+    }
 }
 
 function parseDictionaryInput(input) {
@@ -30512,33 +30633,38 @@ function hasWasmBinaryChanged(knownHash) {
 async function run() {
     try {
         const apiKey = coreExports.getInput('api_key');
-        coreExports.debug(`API Key: ${apiKey}`);
         const apiUrl = coreExports.getInput('api_url');
         const wasmFile = coreExports.getInput('wasm_file');
-        if (!apiKey || !apiUrl || !wasmFile) {
-            coreExports.setFailed('Mandatory inputs are missing: api_key, api_url, wasm_file');
+        const appName = coreExports.getInput('app_name');
+        if (!apiKey || !apiUrl || !wasmFile || !appName) {
+            coreExports.setFailed('Mandatory inputs are missing: api_key, api_url, wasm_file, app_name');
             return;
         }
+        const appId = coreExports.getInput('app_id');
         // Create a FastEdge API client instance
         const fastEdgeClient = new FastEdgeClient(apiKey, apiUrl);
         // Check if the app exists
-        const appName = coreExports.getInput('app_name');
-        const appId = coreExports.getInput('app_id');
         let app;
         if (appId && appId !== '0') {
             app = await fastEdgeClient.apps.get(appId).includeBinary();
+            coreExports.info(`Found application with ID: ${appId}`);
         }
         else if (appName) {
             try {
                 app = await fastEdgeClient.apps.getByName(appName).includeBinary();
+                coreExports.info(`Found application with name: ${appName}`);
             }
             catch {
-                coreExports.debug(`Application with name "${appName}" not found - proceed with creating new application`);
+                coreExports.info(`Application with name "${appName}" not found`);
             }
         }
+        if (!app && !appName) {
+            coreExports.setFailed('Application not found. Please provide a valid app_name or app_id.');
+            return;
+        }
         if (!app) {
-            // Create a new application
-            const binary = await fastEdgeClient.binaries.upload(coreExports.getInput('wasm_file'));
+            coreExports.info(`Creating new application with name: ${appName}`);
+            const binary = await fastEdgeClient.binaries.upload(wasmFile);
             const appResource = {
                 ...createAppResourceFromInputs(),
                 binary: binary.id
@@ -30547,10 +30673,9 @@ async function run() {
             coreExports.notice(`Application created with ID: ${createdApp.id}`);
             coreExports.setOutput('app_id', createdApp.id);
             coreExports.setOutput('binary_id', createdApp.binary);
-            console.log('Farq: I am finished creating app', createdApp);
             return;
         }
-        console.log('Farq: app already exists, TRY updating...');
+        coreExports.info(`Updating application with name: ${appName}`);
         let binary = app.binary;
         if (!app.binary.checksum || hasWasmBinaryChanged(app.binary.checksum)) {
             coreExports.debug('Binary has changed, uploading new binary...');
@@ -30561,7 +30686,6 @@ async function run() {
             binary: binary.id,
             id: app.id
         };
-        console.log('Farq: UPDATE appResource', appResource);
         const updatedApp = await fastEdgeClient.apps.update(appResource);
         coreExports.notice(`Application updated with ID: ${updatedApp.id}`);
         coreExports.setOutput('app_id', updatedApp.id);

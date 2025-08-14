@@ -30,7 +30,7 @@ interface AppResource {
 }
 
 /**
-// * Fetching Single App Types
+// * Fetching Single App
 **/
 
 type GetAppResponse = Pick<
@@ -60,7 +60,7 @@ type GetAppResponseWithBinary = Omit<GetAppResponse, 'binary'> & {
 // }
 
 /**
-// * Fetching Apps List Type
+// * Fetching Apps List
 **/
 
 type AppsOrderingFields =
@@ -99,19 +99,22 @@ type GetAppsResponseItem = Pick<
 type GetAppsResponse = Array<GetAppsResponseItem>
 
 /**
-// * Create Types
+// * Create App
 **/
 
-type CreateAppResource = Pick<
+type CreateAppBase = Pick<
   AppResource,
   'api_type' | 'status' | 'env' | 'rsp_headers' | 'secrets' | 'comment'
 > &
   Partial<Pick<AppResource, 'name'>>
 
-type CreateAppFromBinaryResource = CreateAppResource &
-  Pick<AppResource, 'binary'>
-type CreateAppFromTemplateResource = CreateAppResource &
+type CreateAppFromBinaryResource = CreateAppBase & Pick<AppResource, 'binary'>
+type CreateAppFromTemplateResource = CreateAppBase &
   Pick<AppResource, 'template'>
+
+type CreateAppResource =
+  | CreateAppFromBinaryResource
+  | CreateAppFromTemplateResource
 
 type CreateAppResponse = Pick<
   AppResource,
@@ -119,7 +122,7 @@ type CreateAppResponse = Pick<
 >
 
 /**
-// * Update Types
+// * Update App
 **/
 
 // todo - figure out what is actually required for update success
@@ -147,8 +150,7 @@ interface EnhancedAppResponse<T = GetAppResponse> extends Promise<T> {
 }
 
 export type {
-  CreateAppFromBinaryResource,
-  CreateAppFromTemplateResource,
+  CreateAppResource,
   CreateAppResponse,
   EnhancedAppResponse,
   GetAppResponse,

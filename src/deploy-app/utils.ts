@@ -3,10 +3,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import type {
-  CreateAppFromBinaryResource,
-  CreateAppFromTemplateResource
-} from '../api-utils/types.js'
+import type { CreateAppResource } from '../api-utils/types.js'
 
 type DictionaryInput = 'env' | 'rsp_headers' | 'secrets'
 
@@ -26,9 +23,7 @@ function parseDictionaryInput(input: DictionaryInput): Record<string, string> {
  * Creates an application resource from the action inputs.
  */
 
-function createAppResourceFromInputs(): Partial<
-  CreateAppFromBinaryResource | CreateAppFromTemplateResource
-> {
+function createAppResourceFromInputs(): Partial<CreateAppResource> {
   return {
     name: core.getInput('app_name'),
     status: 1,

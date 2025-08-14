@@ -34,6 +34,9 @@ inputs:
     description: Unique identifier of the application.
     required: false
     default: 0
+  comment:
+    description: Description of the application.
+    required: true
   rsp_headers:
     description: Response headers for your application as a JSON string.
     required: false

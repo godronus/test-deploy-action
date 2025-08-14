@@ -4,8 +4,7 @@ import { getBinary } from '../binaries/index.js'
 
 import type {
   ApiConfig,
-  CreateAppFromBinaryResource,
-  CreateAppFromTemplateResource,
+  CreateAppResource,
   EnhancedAppResponse,
   GetAppResponse,
   GetAppResponseWithBinary,
@@ -142,7 +141,7 @@ async function getAppByName(
 
 async function createApp(
   apiConfig: ApiConfig,
-  app: CreateAppFromBinaryResource | CreateAppFromTemplateResource
+  app: CreateAppResource
 ): Promise<GetAppResponse> {
   try {
     const response = await fetch(`${apiConfig.apiUrl}/fastedge/v1/apps`, {

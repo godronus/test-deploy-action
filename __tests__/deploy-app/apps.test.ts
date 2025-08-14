@@ -12,8 +12,7 @@ import {
 
 import type {
   ApiType,
-  CreateAppFromBinaryResource,
-  CreateAppFromTemplateResource,
+  CreateAppResource,
   CreateAppResponse,
   GetAppResponse,
   GetAppsResponse,
@@ -538,7 +537,7 @@ describe('Application functions', () => {
   })
 
   describe('createApp', () => {
-    const mockAppResource: CreateAppFromBinaryResource = {
+    const mockAppResource: CreateAppResource = {
       api_type: 'wasi-http' as ApiType,
       binary: 159487,
       status: 1,

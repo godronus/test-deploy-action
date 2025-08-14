@@ -51,14 +51,10 @@ async function getBinary(
       throw new Error(response.statusText)
     }
     const fetchedBinary = (await response.json()) as GetBinaryResponse
-    // TODO: Remove this once the API is fixed
-    if (fetchedBinary.id === 0) {
-      return {
-        ...fetchedBinary,
-        id: Number.parseInt(id.toString(), 10)
-      }
+    return {
+      ...fetchedBinary,
+      id: Number.parseInt(id.toString(), 10) // Ensure ID is included and always a number
     }
-    return fetchedBinary
   } catch (error) {
     throw new Error(
       `Error fetching binary: ${error instanceof Error ? error.message : error}`

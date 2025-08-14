@@ -3,6 +3,7 @@
 import { ApiConfig } from './types.js'
 import * as apps from './apps/index.js'
 import * as binaries from './binaries/index.js'
+import * as secrets from './secrets/index.js'
 
 /**
  * FastEdge API client providing access to all API endpoints
@@ -87,14 +88,46 @@ export class FastEdgeClient {
     }
   }
 
-  // /**
-  //  * Access secret-related API endpoints
-  //  */
-  // get secrets() {
-  //   return {
-  //     // Secret-related methods
-  //   }
-  // }
+  /**
+   * Access secret-related API endpoints
+   */
+  get secrets() {
+    return {
+      /**
+       * Get a list of secrets
+       * @param params - Query parameters
+       */
+      getAll: (params: Parameters<typeof secrets.getSecrets>[1] = {}) =>
+        secrets.getSecrets(this.apiConfig, params),
+
+      /**
+       * Get a specific secret by ID
+       * @param id - Secret ID
+       */
+      get: (id: number | string) => secrets.getSecret(this.apiConfig, id),
+
+      /**
+       * Get a specific secret by Name
+       * @param id - Secret ID
+       */
+      getByName: (name: string) =>
+        secrets.getSecretByName(this.apiConfig, name),
+
+      /**
+       * Create a new secret
+       * @param resource - Secret creation parameters
+       */
+      create: (resource: Parameters<typeof secrets.createSecret>[1]) =>
+        secrets.createSecret(this.apiConfig, resource),
+
+      /**
+       * Update an existing secret
+       * @param resource - Secret update parameters
+       */
+      update: (resource: Parameters<typeof secrets.updateSecret>[1]) =>
+        secrets.updateSecret(this.apiConfig, resource)
+    }
+  }
 }
 
 // Also export individual functions for flexibility

@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 
 import {
-  CreateAppFromBinaryResource,
+  CreateAppResource,
   FastEdgeClient,
   GetBinaryResponse,
   UpdateAppResource,
@@ -17,56 +17,52 @@ import { createAppResourceFromInputs, hasWasmBinaryChanged } from './utils.js'
 export async function run(): Promise<void> {
   try {
     const apiKey: string = core.getInput('api_key')
-    core.debug(`API Key: ${apiKey}`)
     const apiUrl: string = core.getInput('api_url')
     const wasmFile: string = core.getInput('wasm_file')
+    const appName: string = core.getInput('app_name')
 
-    if (!apiKey || !apiUrl || !wasmFile) {
+    if (!apiKey || !apiUrl || !wasmFile || !appName) {
       core.setFailed(
-        'Mandatory inputs are missing: api_key, api_url, wasm_file'
+        'Mandatory inputs are missing: api_key, api_url, wasm_file, app_name'
       )
       return
     }
+
+    const appId: string = core.getInput('app_id')
 
     // Create a FastEdge API client instance
     const fastEdgeClient = new FastEdgeClient(apiKey, apiUrl)
 
     // Check if the app exists
-    const appName: string = core.getInput('app_name')
-    const appId: string = core.getInput('app_id')
-
     let app
     if (appId && appId !== '0') {
       app = await fastEdgeClient.apps.get(appId).includeBinary()
+      core.info(`Found application with ID: ${appId}`)
     } else if (appName) {
       try {
         app = await fastEdgeClient.apps.getByName(appName).includeBinary()
+        core.info(`Found application with name: ${appName}`)
       } catch {
-        core.debug(
-          `Application with name "${appName}" not found - proceed with creating new application`
-        )
+        core.info(`Application with name "${appName}" not found`)
       }
     }
     if (!app) {
-      // Create a new application
-      const binary = await fastEdgeClient.binaries.upload(
-        core.getInput('wasm_file')
-      )
+      core.info(`Creating new application with name: ${appName}`)
+      const binary = await fastEdgeClient.binaries.upload(wasmFile)
 
       const appResource = {
         ...createAppResourceFromInputs(),
         binary: binary.id
-      } as CreateAppFromBinaryResource
+      } as CreateAppResource
 
       const createdApp = await fastEdgeClient.apps.create(appResource)
       core.notice(`Application created with ID: ${createdApp.id}`)
       core.setOutput('app_id', createdApp.id)
       core.setOutput('binary_id', createdApp.binary)
-      console.log('Farq: I am finished creating app', createdApp)
       return
     }
 
-    console.log('Farq: app already exists, TRY updating...')
+    core.info(`Updating application with name: ${appName}`)
     let binary: GetBinaryResponse | UploadBinaryResponse = app.binary
     if (!app.binary.checksum || hasWasmBinaryChanged(app.binary.checksum)) {
       core.debug('Binary has changed, uploading new binary...')
@@ -77,8 +73,6 @@ export async function run(): Promise<void> {
       binary: binary.id,
       id: app.id
     } as UpdateAppResource
-
-    console.log('Farq: UPDATE appResource', appResource)
 
     const updatedApp = await fastEdgeClient.apps.update(appResource)
     core.notice(`Application updated with ID: ${updatedApp.id}`)
