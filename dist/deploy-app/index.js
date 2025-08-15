@@ -30593,10 +30593,58 @@ class FastEdgeClient {
 function parseDictionaryInput(input) {
     try {
         const inputString = coreExports.getInput(input) || '{}';
-        return JSON.parse(inputString.trim());
+        const dict = JSON.parse(inputString.trim());
+        if (typeof dict !== 'object' || dict === null || Array.isArray(dict)) {
+            coreExports.warning(`Input "${input}" is not a valid JSON dictionary object.`);
+            return {};
+        }
+        const parsedDict = Object.entries(dict).reduce((acc, [key, value]) => {
+            if (typeof value !== 'string') {
+                coreExports.warning(`Value for key "${key}" in input "${input}" is not a string.`);
+                acc[key] = '';
+                return acc;
+            }
+            acc[key] = value;
+            return acc;
+        }, {});
+        return parsedDict;
     }
     catch {
         coreExports.warning(`Failed to parse input as JSON: ${input}. Using empty object instead.`);
+        return {};
+    }
+}
+/**
+ * Type guard to validate if an object is a valid Secret entry
+ */
+function isValidSecretEntry(entry) {
+    return (typeof entry === 'object' &&
+        entry !== null &&
+        typeof entry.id === 'number');
+}
+function parseSecretsInput() {
+    try {
+        const inputString = coreExports.getInput('secrets') || '{}';
+        const secrets = JSON.parse(inputString.trim());
+        if (typeof secrets !== 'object' ||
+            secrets === null ||
+            Array.isArray(secrets)) {
+            coreExports.warning(`Input "secrets" is not a valid JSON secrets object.`);
+            return {};
+        }
+        const isValid = Object.values(secrets).every(isValidSecretEntry);
+        if (!isValid) {
+            coreExports.warning(`Failed to validate secrets input. Each secret must be an object with 'id' property set as a number.`);
+            return {};
+        }
+        // Strip everything except the id from each secret entry
+        return Object.entries(secrets).reduce((acc, [key, value]) => {
+            acc[key] = { id: value.id };
+            return acc;
+        }, {});
+    }
+    catch {
+        coreExports.warning(`Failed to parse input as JSON: secrets. Using empty object instead.`);
         return {};
     }
 }
@@ -30609,7 +30657,7 @@ function createAppResourceFromInputs() {
         status: 1,
         env: parseDictionaryInput('env'),
         rsp_headers: parseDictionaryInput('rsp_headers'),
-        // secrets: parseDictionaryInput('secrets'),
+        secrets: parseSecretsInput(),
         comment: coreExports.getInput('comment') || ''
     };
 }
